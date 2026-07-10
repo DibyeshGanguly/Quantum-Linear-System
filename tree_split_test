@@ -1,0 +1,35 @@
+import numpy as np
+from struct_norm_eqn import ET_stats, incidence, grid_edges, random_graph_edges
+
+def spanning_tree_mask(edges, N):
+    parent = list(range(N))
+    def find(x):
+        while parent[x]!=x: parent[x]=parent[parent[x]]; x=parent[x]
+        return x
+    is_tree = np.zeros(len(edges), bool)
+    for k,(i,j) in enumerate(edges):
+        ri,rj=find(i),find(j)
+        if ri!=rj: parent[ri]=rj; is_tree[k]=True
+    return is_tree
+
+def M_tree_split(edges, N, mu, rng):
+    B = incidence(edges, N)
+    tree = spanning_tree_mask(edges, N)
+    d = np.where(tree, 1.0/mu, mu)      
+    return B @ np.diag(d) @ B.T
+
+def sweep_tree(name, edges, N, mus, S=50000, seed=0):
+    print(f"\n{name}")
+    print(f"  {'mu':>7} {'kappa':>11} {'N':>4} {'E[ET]':>12} {'E[ET]/kappa^2':>14} {'E[ET]/N':>10}")
+    for mu in mus:
+        rng=np.random.default_rng(seed)
+        M=M_tree_split(edges,N,mu,rng)
+        eET,kappa,Nn=ET_stats(M,S=S,seed=seed+1)
+        print(f"  {mu:>7.0e} {kappa:>11.3g} {Nn:>4} {eET:>12.4g} {eET/kappa**2:>14.4g} {eET/Nn:>10.4g}")
+
+mus=[1e-1,3e-2,1e-2,3e-3,1e-3]
+print("="*76); print("TREE-SPLIT (realistic optimal-basis): 1/mu on spanning tree, mu on chords"); print("="*76)
+ge,gN=grid_edges(5)
+sweep_tree("2D grid 5x5, tree-split", ge, gN, mus)
+rng0=np.random.default_rng(0); redges=random_graph_edges(20,20,rng0)
+sweep_tree("random sparse graph N=20 ~2N edges, tree-split", redges, 20, mus)
